@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Peg-Шоу</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='PEGLIN.png') }}">
+    <style>
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: url("{{ url_for('static', filename='Back.png') }}") no-repeat center center fixed;
+            background-size: cover;
+            background-color: #0a1f12;
+            color: #f4efe2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Тёмный оверлей поверх фона */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(10, 31, 20, 0.55), rgba(10, 31, 20, 0.8));
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .intro-stage {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .start-btn {
+            padding: 22px 60px;
+            font-family: inherit;
+            font-size: 1.6em;
+            font-weight: bold;
+            letter-spacing: 4px;
+            cursor: pointer;
+            color: #f4efe2;
+            background: linear-gradient(180deg, rgba(164, 227, 74, 0.25), rgba(164, 227, 74, 0.08));
+            border: 3px solid #a4e34a;
+            border-radius: 14px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            box-shadow: 0 0 30px rgba(164, 227, 74, 0.4);
+        }
+        .start-btn:hover {
+            background: linear-gradient(180deg, #a4e34a, #6fb42c);
+            color: #0a1f12;
+            box-shadow: 0 0 60px rgba(164, 227, 74, 0.9);
+            transform: scale(1.05);
+        }
+
+        /* Видео-оверлей */
+        .video-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .video-overlay.active { display: flex; }
+
+        .video-overlay video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        .skip-hint {
+            position: absolute;
+            right: 24px;
+            bottom: 20px;
+            color: rgba(244, 239, 226, 0.6);
+            font-size: 0.9em;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="intro-stage">
+    <button class="start-btn" id="start-btn">НАЧАТЬ</button>
+</div>
+
+<div class="video-overlay" id="video-overlay">
+    <video id="cutscene" preload="auto" playsinline>
+        <source src="{{ url_for('static', filename='cutscene.mp4') }}" type="video/mp4">
+    </video>
+    <div class="skip-hint">клик — пропустить</div>
+</div>
+
+<script>
+    const startBtn = document.getElementById('start-btn');
+    const overlay = document.getElementById('video-overlay');
+    const video = document.getElementById('cutscene');
+    let finished = false;
+
+    function goToGame() {
+        if (finished) return;
+        finished = true;
+        fetch('/start_game', { method: 'POST' })
+            .then(() => { window.location.href = '/'; })
+            .catch(() => { window.location.href = '/'; });
+    }
+
+    startBtn.addEventListener('click', () => {
+        overlay.classList.add('active');
+        // Пытаемся проиграть со звуком; если браузер заблокирует — просто без звука
+        video.volume = 1.0;
+        video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
+    });
+
+    video.addEventListener('ended', goToGame);
+
+    // Клик по видео — пропуск
+    overlay.addEventListener('click', goToGame);
+
+    // Esc — тоже пропуск
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Escape' && overlay.classList.contains('active')) {
+            goToGame();
+        }
+    });
+</script>
+
+</body>
+</html>

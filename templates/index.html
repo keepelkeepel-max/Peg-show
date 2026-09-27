@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Peg-Шоу</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='PEGLIN.png') }}">
+    <style>
+        @font-face {
+            font-family: 'Peg';
+            src: url("{{ url_for('static', filename='Peg.ttf') }}") format('truetype');
+        }
+        :root {
+            --peg-forest:  #1c4a2a;
+            --peg-leaf:    #2f7a3d;
+            --peg-lime:    #a4e34a;
+            --peg-lime-d:  #6fb42c;
+            --peg-gold:    #f2c75b;
+            --peg-cream:   #f4efe2;
+            --peg-shadow:  rgba(0, 0, 0, 0.55);
+        }
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+
+        body {
+            font-family: 'Peg', 'Courier New', Courier, monospace, Arial, sans-serif;
+            text-align: center;
+            color: var(--peg-cream);
+            margin: 0;
+            padding: 25px 15px;
+            min-height: 100vh;
+            background: url("{{ url_for('static', filename='Back.png') }}") no-repeat center center fixed;
+            background-size: cover;
+            background-color: var(--peg-forest);
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(1200px 600px at 50% -10%, rgba(164, 227, 74, 0.10), transparent 60%),
+                radial-gradient(900px 500px at 10% 110%, rgba(47, 122, 61, 0.25), transparent 60%),
+                linear-gradient(180deg, rgba(10, 31, 20, 0.35), rgba(10, 31, 20, 0.55));
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 28px 26px 32px;
+            background: linear-gradient(180deg, rgba(16, 46, 26, 0.88), rgba(28, 74, 42, 0.85));
+            border: 2px solid rgba(164, 227, 74, 0.55);
+            border-radius: 14px;
+            box-shadow:
+                0 0 0 1px rgba(242, 199, 91, 0.25) inset,
+                0 20px 60px var(--peg-shadow),
+                0 0 40px rgba(164, 227, 74, 0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .peg-top {
+            display: block;
+            margin: 0 auto 12px;
+            max-height: 150px;
+            width: auto;
+            image-rendering: pixelated;
+            filter: drop-shadow(0 0 18px rgba(164, 227, 74, 0.55));
+            user-select: none;
+            pointer-events: none;
+        }
+
+        h1.title {
+            margin: 0 0 18px;
+            padding: 0 0 14px;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            font-size: 2rem;
+            color: var(--peg-gold);
+            border-bottom: 2px solid rgba(242, 199, 91, 0.35);
+            text-shadow: 0 0 8px rgba(242, 199, 91, 0.55), 0 0 24px rgba(242, 199, 91, 0.25);
+        }
+        h1.title .peg {
+            color: var(--peg-lime);
+            text-shadow: 0 0 10px rgba(164, 227, 74, 0.8), 0 0 26px rgba(164, 227, 74, 0.45);
+        }
+
+        .game-layout {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 22px;
+            margin-top: 8px;
+        }
+
+        .main-game { flex: 1; min-width: 0; }
+
+        .scoreboard {
+            width: 240px;
+            flex-shrink: 0;
+            background: linear-gradient(180deg, rgba(16, 46, 26, 0.95), rgba(28, 74, 42, 0.9));
+            border: 2px solid rgba(164, 227, 74, 0.55);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(242, 199, 91, 0.15);
+        }
+
+        .scoreboard h3 {
+            margin: 0 0 10px;
+            color: var(--peg-lime);
+            border-bottom: 1px solid rgba(164, 227, 74, 0.4);
+            padding-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-size: 0.95em;
+            text-shadow: 0 0 8px rgba(164, 227, 74, 0.4);
+        }
+
+        .player-slot { position: relative; }
+
+        .player-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 8px;
+            border-bottom: 1px dashed rgba(164, 227, 74, 0.25);
+            font-size: 1.05em;
+            color: rgba(244, 239, 226, 0.78);
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            cursor: help;
+        }
+
+        /* name — фиксированная ширина, чтобы иконка и стрелка не «прыгали» */
+        .player-row .name {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-align: left;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .player-row .player-icon {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            margin-left: auto;     /* прижимаем иконку к правому краю name */
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 4px rgba(164, 227, 74, 0.45));
+        }
+
+        .player-row.active {
+            background: linear-gradient(90deg, rgba(164, 227, 74, 0.2), rgba(47, 122, 61, 0.25));
+            color: var(--peg-cream);
+            font-weight: bold;
+            border-left: 3px solid var(--peg-lime);
+            box-shadow: 0 0 18px rgba(164, 227, 74, 0.3);
+        }
+
+        .player-row.active .name {
+            color: var(--peg-lime);
+            text-shadow: 0 0 8px rgba(164, 227, 74, 0.7);
+        }
+
+        .inventory-popup {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            z-index: 50;
+            min-width: 240px;
+            max-width: 300px;
+            padding: 12px;
+            margin-top: 6px;
+            background: linear-gradient(180deg, rgba(10, 31, 18, 0.98), rgba(16, 46, 26, 0.98));
+            border: 2px solid var(--peg-lime);
+            border-radius: 10px;
+            box-shadow: 0 0 24px rgba(164, 227, 74, 0.35), 0 12px 30px rgba(0, 0, 0, 0.7);
+            text-align: left;
+            opacity: 0;
+            transform: translateY(-6px);
+            pointer-events: none;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+        .player-slot:hover .inventory-popup {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .inventory-popup h5 {
+            margin: 0 0 8px;
+            font-size: 0.85em;
+            color: var(--peg-gold);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid rgba(242, 199, 91, 0.35);
+            padding-bottom: 6px;
+        }
+
+        .inv-score {
+            color: var(--peg-lime);
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .inventory-item {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            aspect-ratio: 1 / 1;
+            background: rgba(10, 31, 18, 0.85);
+            border: 2px solid rgba(164, 227, 74, 0.55);
+            border-radius: 6px;
+            padding: 2px;
+            transition: all 0.15s;
+        }
+        .inventory-item:hover {
+            border-color: var(--peg-gold);
+            box-shadow: 0 0 10px rgba(242, 199, 91, 0.6);
+            transform: scale(1.05);
+        }
+        .inventory-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
+            pointer-events: none;
+        }
+        .inventory-item .item-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 6px;
+            padding: 5px 8px;
+            white-space: nowrap;
+            background: #0a1f12;
+            border: 1px solid var(--peg-gold);
+            border-radius: 5px;
+            color: var(--peg-gold);
+            font-size: 0.75em;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s;
+            z-index: 100;
+        }
+        .inventory-item:hover .item-tooltip { opacity: 1; }
+
+        .inventory-empty {
+            color: rgba(244, 239, 226, 0.45);
+            font-size: 0.85em;
+            font-style: italic;
+            text-align: center;
+            padding: 6px 0;
+        }
+
+        .word-box {
+            position: relative;
+            font-size: 2.6em;
+            letter-spacing: 12px;
+            margin: 22px auto;
+            padding: 20px 15px;
+            width: 100%;
+            max-width: 560px;
+            color: var(--peg-cream);
+            font-weight: bold;
+            border-radius: 12px;
+            background:
+                radial-gradient(120% 140% at 50% 0%, rgba(164, 227, 74, 0.22), transparent 55%),
+                linear-gradient(180deg, rgba(16, 46, 26, 0.95), rgba(10, 30, 18, 0.95));
+            border: 2px solid rgba(164, 227, 74, 0.65);
+            box-shadow:
+                0 0 0 1px rgba(242, 199, 91, 0.25) inset,
+                0 0 25px rgba(164, 227, 74, 0.3),
+                0 0 60px rgba(47, 122, 61, 0.35),
+                0 12px 30px rgba(0, 0, 0, 0.6);
+            text-shadow: 0 0 10px rgba(164, 227, 74, 0.7), 0 0 22px rgba(164, 227, 74, 0.35);
+        }
+        .word-box::before, .word-box::after {
+            content: "";
+            position: absolute;
+            left: 14px; right: 14px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(164, 227, 74, 0.75), transparent);
+        }
+        .word-box::before { top: 6px; }
+        .word-box::after  { bottom: 6px; }
+
+        .case-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 720px;
+            height: 160px;
+            margin: 25px auto 10px;
+            overflow: hidden;
+            background: linear-gradient(180deg, #0a1f12, #123420);
+            border: 3px solid rgba(164, 227, 74, 0.65);
+            border-radius: 10px;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.9), 0 0 25px rgba(164, 227, 74, 0.3);
+        }
+        .case-track {
+            display: flex;
+            height: 100%;
+            align-items: center;
+            will-change: transform;
+        }
+        .case-tile {
+            flex: 0 0 140px;
+            width: 140px;
+            height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid rgba(164, 227, 74, 0.18);
+            background:
+                radial-gradient(closest-side, rgba(164, 227, 74, 0.08), transparent 80%),
+                #0a1f12;
+        }
+        .case-tile img {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            user-select: none;
+            pointer-events: none;
+            filter: drop-shadow(0 0 6px rgba(164, 227, 74, 0.35));
+        }
+        .case-pointer {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--peg-lime), #eaffc2, var(--peg-lime));
+            transform: translateX(-50%);
+            box-shadow: 0 0 12px var(--peg-lime), 0 0 28px rgba(164, 227, 74, 0.65);
+            z-index: 10;
+        }
+        .case-pointer::before, .case-pointer::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+        }
+        .case-pointer::before { top: 0;    border-top: 14px solid var(--peg-lime); }
+        .case-pointer::after  { bottom: 0; border-bottom: 14px solid var(--peg-lime); }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 1.05em;
+            font-family: inherit;
+            cursor: pointer;
+            background: linear-gradient(180deg, rgba(164, 227, 74, 0.2), rgba(164, 227, 74, 0.06));
+            color: var(--peg-cream);
+            border: 2px solid var(--peg-lime);
+            border-radius: 8px;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 2px;
+            transition: all 0.15s;
+            box-shadow: 0 0 12px rgba(164, 227, 74, 0.3);
+        }
+        .btn:hover {
+            background: linear-gradient(180deg, var(--peg-lime), var(--peg-lime-d));
+            color: var(--peg-forest);
+            box-shadow: 0 0 22px rgba(164, 227, 74, 0.8);
+        }
+        .btn:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: rgba(244, 239, 226, 0.35);
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        .btn-gold {
+            background: linear-gradient(180deg, rgba(242, 199, 91, 0.2), rgba(242, 199, 91, 0.06));
+            border-color: var(--peg-gold);
+            color: var(--peg-gold);
+            box-shadow: 0 0 12px rgba(242, 199, 91, 0.3);
+        }
+        .btn-gold:hover {
+            background: linear-gradient(180deg, var(--peg-gold), #b8902f);
+            color: var(--peg-forest);
+            box-shadow: 0 0 22px rgba(242, 199, 91, 0.8);
+        }
+
+        .flash-messages {
+            list-style: none;
+            padding: 12px 18px;
+            margin: 8px 0 14px;
+            font-weight: bold;
+            font-size: 1.05em;
+            border: 2px solid var(--peg-lime);
+            border-radius: 8px;
+            background: rgba(164, 227, 74, 0.12);
+            color: var(--peg-lime);
+            box-shadow: 0 0 18px rgba(164, 227, 74, 0.25);
+        }
+
+        .action-zone { margin-top: 15px; min-height: 100px; }
+
+        input[type="text"] {
+            border: 2px solid rgba(164, 227, 74, 0.6);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 1.05em;
+            font-family: inherit;
+            background: rgba(10, 31, 18, 0.9);
+            color: var(--peg-cream);
+            letter-spacing: 1px;
+            transition: all 0.15s;
+        }
+        input[type="text"]::placeholder { color: rgba(244, 239, 226, 0.45); }
+        input[type="text"]:focus {
+            background: rgba(10, 31, 18, 1);
+            border-color: var(--peg-gold);
+            outline: none;
+            box-shadow: 0 0 14px rgba(242, 199, 91, 0.5);
+        }
+
+        .guessed-letters {
+            margin-top: 20px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(164, 227, 74, 0.35);
+        }
+        .guessed-letters h4 {
+            margin: 0 0 10px;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            color: var(--peg-lime);
+            letter-spacing: 2px;
+        }
+        .letter-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
+        }
+        .letter-chip {
+            display: inline-block;
+            min-width: 28px;
+            padding: 4px 6px;
+            border: 2px solid rgba(164, 227, 74, 0.55);
+            border-radius: 5px;
+            background: rgba(10, 31, 18, 0.9);
+            color: var(--peg-cream);
+            font-weight: bold;
+            font-size: 1em;
+        }
+        .letter-chip.correct {
+            background: linear-gradient(180deg, var(--peg-lime), var(--peg-lime-d));
+            border-color: var(--peg-lime);
+            color: var(--peg-forest);
+            box-shadow: 0 0 10px rgba(164, 227, 74, 0.7);
+        }
+
+        .stop-hint {
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: rgba(244, 239, 226, 0.65);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .winner-screen h2 { color: var(--peg-gold); letter-spacing: 3px; text-shadow: 0 0 18px rgba(242, 199, 91, 0.6); }
+        .winner-screen h3 { color: var(--peg-lime); letter-spacing: 2px; text-shadow: 0 0 12px rgba(164, 227, 74, 0.6); }
+
+        hr.dashed {
+            margin: 15px 0;
+            border: 0;
+            border-top: 2px dashed rgba(164, 227, 74, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <img class="peg-top" src="{{ url_for('static', filename='PEGLIN.png') }}" alt="Peglin">
+    <h1 class="title"><span class="peg">Peg</span>-Шоу</h1>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul class="flash-messages" id="flash-box">
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+
+    <div class="game-layout">
+        <div class="main-game" data-sound-trigger="{{ sound_trigger or '' }}">
+            {% if game_over %}
+                <div class="winner-screen">
+                    <h2>🎉 АБСОЛЮТНЫЙ ПОБЕДИТЕЛЬ:</h2>
+                    <h3>{{ winner }}</h3>
+                    <a href="{{ url_for('reset') }}"><button class="btn btn-gold">НАЧАТЬ НОВЫЙ МАРАФОН</button></a>
+                </div>
+            {% else %}
+                <p><strong style="color: var(--peg-lime);">ВОПРОС:</strong> {{ hint }}</p>
+                <p style="font-size: 0.9em; letter-spacing: 1px; color: rgba(244, 239, 226, 0.75);">
+                    ОСТАЛОСЬ СЛОВ В БАЗЕ: {{ words_left + 1 }}
+                </p>
+
+                <div class="word-box">{{ display_word }}</div>
+
+                {% if round_finished %}
+                    <div style="background: rgba(164, 227, 74, 0.12); padding: 20px; border: 2px solid var(--peg-lime); border-radius: 10px; margin: 20px 0;">
+                        <h3 style="margin-top:0; color: var(--peg-lime); letter-spacing: 3px;">СЛОВО ОТГАДАНО!</h3>
+                        <form action="{{ url_for('next_word_route') }}" method="POST">
+                            <button type="submit" class="btn btn-gold">ПЕРЕЙТИ К СЛЕДУЮЩЕМУ СЛОВУ ▶</button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="case-wrapper" data-wheel-folder="{{ wheel_folder }}">
+                        <div class="case-pointer"></div>
+                        <div class="case-track" id="case-track"></div>
+                    </div>
+
+                    <div id="result-status" style="font-size: 1.1em; margin: 10px 0; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; color: var(--peg-lime);"></div>
+
+                    <div class="action-zone">
+                        <button id="spin-btn" class="btn" onclick="startSpin()">КРУТИТЬ РУЛЕТКУ</button>
+                        <button class="btn" onclick="toggleWheelSound()" id="sound-toggle" style="margin-left:8px;">🔊 ЗВУК</button>
+                        <div id="stop-hint" class="stop-hint" style="display:none;">Нажмите SPACE, чтобы остановить</div>
+
+                        <div id="inputs-zone" style="display:none;">
+                            <div id="letter-block">
+                                <form onsubmit="return submitLetter(event)" style="display: inline-block;">
+                                    <input type="text" name="letter" maxlength="1" placeholder="БУКВА"
+                                           style="width: 70px; text-align: center;" required
+                                           id="letter-input" autocomplete="off">
+                                    <button type="submit" class="btn">НАЗВАТЬ БУКВУ</button>
+                                </form>
+                                <hr class="dashed">
+                                <form onsubmit="return submitWord(event)" style="display: inline-block;">
+                                    <input type="text" name="entire_word" placeholder="СЛОВО ЦЕЛИКОМ"
+                                           required autocomplete="off">
+                                    <button type="submit" class="btn btn-gold">НАЗВАТЬ СЛОВО</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="scoreboard">
+            <h3>УЧАСТНИКИ</h3>
+            {% for p in players %}
+                <div class="player-slot">
+                    <div class="player-row {% if loop.index0 == current_idx and not game_over %}active{% endif %}">
+                        <span class="name">
+                            {% if loop.index0 == current_idx and not game_over %}▶{% endif %}
+                            {{ p.name | upper }}
+                            <img class="player-icon"
+                                 src="{{ url_for('static', filename=p.folder + '/player.png') }}"
+                                 alt="{{ p.name }}">
+                        </span>
+                        <span>?</span>
+                    </div>
+
+                    <div class="inventory-popup">
+                        <h5>Инвентарь · {{ p.name }}</h5>
+                        <div class="inv-score">Очки: <strong>{{ p.score }}</strong></div>
+                        {% if p.inventory and p.inventory|length > 0 %}
+                            <div class="inventory-grid">
+                                {% for item in p.inventory %}
+                                    <div class="inventory-item">
+                                        <img src="{{ url_for('static', filename=p.folder + '/' + item.variant + '.png') }}"
+                                             alt="{{ item.label }}">
+                                        <div class="item-tooltip">{{ item.label }} · {{ item.points }} б.</div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="inventory-empty">— пусто —</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <div class="guessed-letters">
+                <h4>Выбранные буквы</h4>
+                <div class="letter-list">
+                    {% if guessed_letters %}
+                        {% for letter in guessed_letters %}
+                            <span class="letter-chip {% if letter in session.get('word', '') %}correct{% endif %}">{{ letter }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: rgba(244, 239, 226, 0.4); font-size:0.9em;">— пока нет —</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const WHEEL_VARIANTS = [
+        {% for v in wheel_variants %}"{{ v.variant }}"{% if not loop.last %},{% endif %}{% endfor %}
+    ];
+    const STATIC_BASE = "{{ url_for('static', filename='') }}";
+
+    const TILE_WIDTH = 140;
+    const REPEATS = 8;
+
+    let isSpinning = false;
+    let stopRequested = false;
+    let spinTimeoutId = null;
+    let pendingSpinData = null;
+    let trackOffset = 0;
+
+    const wheelSound  = new Audio(STATIC_BASE + "wheel.mp3");
+    const rightSound  = new Audio(STATIC_BASE + "right.mp3");
+    const wrongSound  = new Audio(STATIC_BASE + "wrong.mp3");
+    const buttonSound = new Audio(STATIC_BASE + "botton.mp3");
+    const rollSound   = new Audio(STATIC_BASE + "roll.mp3");
+    const fullSound   = new Audio(STATIC_BASE + "full.mp3");
+    const pressSound  = new Audio(STATIC_BASE + "press.mp3");
+
+    fullSound.volume   = 0.7;
+    rollSound.volume   = 0.5;
+    buttonSound.volume = 0.6;
+    pressSound.volume  = 0.5;
+
+    const WHEEL_POS_KEY   = "pegshow_wheel_pos";
+    const WHEEL_MUTED_KEY = "pegshow_wheel_muted";
+
+    wheelSound.loop = true;
+    wheelSound.volume = 0.5;
+
+    // ---- Актуальная папка колеса (обновляется при refresh) ----
+    function getWheelFolder() {
+        const w = document.querySelector('.case-wrapper');
+        return w ? (w.dataset.wheelFolder || "") : "";
+    }
+
+    // ---- восстановление позиции wheel.mp3 ----
+    try {
+        const savedPos = parseFloat(localStorage.getItem(WHEEL_POS_KEY) || "0");
+        if (!isNaN(savedPos) && savedPos > 0) {
+            wheelSound.addEventListener('loadedmetadata', () => {
+                if (wheelSound.duration && savedPos < wheelSound.duration) {
+                    wheelSound.currentTime = savedPos;
+                }
+            }, { once: true });
+        }
+    } catch (e) {}
+
+    setInterval(() => {
+        try {
+            if (!wheelSound.paused) localStorage.setItem(WHEEL_POS_KEY, String(wheelSound.currentTime));
+        } catch (e) {}
+    }, 500);
+
+    window.addEventListener('beforeunload', () => {
+        try {
+            localStorage.setItem(WHEEL_POS_KEY, String(wheelSound.currentTime));
+            localStorage.setItem(WHEEL_MUTED_KEY, wheelSound.paused ? "1" : "0");
+        } catch (e) {}
+    });
+
+    function isWheelMuted() {
+        try { return localStorage.getItem(WHEEL_MUTED_KEY) === "1"; } catch (e) { return false; }
+    }
+
+    function ensureWheelSound() {
+        if (isWheelMuted()) return;
+        if (wheelSound.volume < 0.3) wheelSound.volume = 0.5;
+        if (wheelSound.paused) wheelSound.play().catch(() => {});
+    }
+
+    function toggleWheelSound() {
+        const btn = document.getElementById('sound-toggle');
+        if (wheelSound.paused) {
+            try { localStorage.setItem(WHEEL_MUTED_KEY, "0"); } catch (e) {}
+            wheelSound.play().catch(() => {});
+            if (btn) btn.textContent = '🔊 ЗВУК';
+        } else {
+            try {
+                localStorage.setItem(WHEEL_POS_KEY, String(wheelSound.currentTime));
+                localStorage.setItem(WHEEL_MUTED_KEY, "1");
+            } catch (e) {}
+            wheelSound.pause();
+            if (btn) btn.textContent = '🔇 БЕЗ ЗВУКА';
+        }
+    }
+
+    function playClone(audio, volumeOverride) {
+        try {
+            const s = audio.cloneNode();
+            s.volume = (volumeOverride !== undefined) ? volumeOverride : audio.volume;
+            s.play().catch(() => {});
+        } catch (e) {}
+    }
+
+    function playRollSound()   { playClone(rollSound); }
+    function playButtonSound() { playClone(buttonSound); }
+    function playPressSound()  { playClone(pressSound); }
+
+    function playResultSound(kind) {
+        if (kind === 'right') {
+            rightSound.currentTime = 0;
+            rightSound.play().catch(() => {});
+        } else if (kind === 'wrong') {
+            wrongSound.currentTime = 0;
+            wrongSound.play().catch(() => {});
+        } else if (kind === 'full') {
+            const prevVol = wheelSound.volume;
+            wheelSound.volume = 0.15;
+            fullSound.currentTime = 0;
+            fullSound.play().catch(() => {});
+            fullSound.addEventListener('ended', () => {
+                wheelSound.volume = prevVol;
+            }, { once: true });
+        }
+    }
+
+    function attachButtonSounds() {
+        document.querySelectorAll('.btn').forEach(btn => {
+            if (btn.dataset.soundAttached === '1') return;
+            btn.dataset.soundAttached = '1';
+            btn.addEventListener('mouseenter', playButtonSound);
+            btn.addEventListener('focus', playButtonSound);
+        });
+    }
+
+    function getCenterTileIndex() {
+        const track = document.getElementById('case-track');
+        const wrapper = document.querySelector('.case-wrapper');
+        if (!track || !wrapper) return 0;
+        const wrapperWidth = wrapper.clientWidth;
+        const m = new DOMMatrixReadOnly(getComputedStyle(track).transform);
+        const currentX = m.m41;
+        const centerInTrack = -currentX + wrapperWidth / 2;
+        return Math.floor(centerInTrack / TILE_WIDTH);
+    }
+
+    let rollWatcherId = null;
+    let lastRollIndex = -1;
+
+    function startRollWatcher() {
+        lastRollIndex = -1;
+        const tick = () => {
+            if (!isSpinning) { rollWatcherId = null; return; }
+            const idx = getCenterTileIndex();
+            if (idx !== lastRollIndex) {
+                lastRollIndex = idx;
+                playRollSound();
+            }
+            rollWatcherId = requestAnimationFrame(tick);
+        };
+        rollWatcherId = requestAnimationFrame(tick);
+    }
+
+    function stopRollWatcher() {
+        if (rollWatcherId !== null) {
+            cancelAnimationFrame(rollWatcherId);
+            rollWatcherId = null;
+        }
+    }
+
+    // ==== Глобальный звук нажатия клавиши ====
+    document.addEventListener('keydown', function (e) {
+        if (e.repeat) return;
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        playPressSound();
+    }, true);
+
+    // ==== Обработка sound_trigger при загрузке ====
+    function consumeSoundTrigger() {
+        const holder = document.querySelector('.main-game');
+        if (!holder) return;
+        const trigger = holder.dataset.soundTrigger || "";
+        if (!trigger) return;
+        holder.dataset.soundTrigger = "";
+        if (trigger === "right") rightSound.play().catch(() => {});
+        else if (trigger === "wrong") wrongSound.play().catch(() => {});
+        else if (trigger === "full") playResultSound("full");
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        buildTrack();
+        attachButtonSounds();
+
+        const soundBtn = document.getElementById('sound-toggle');
+        if (isWheelMuted()) {
+            if (soundBtn) soundBtn.textContent = '🔇 БЕЗ ЗВУКА';
+        } else if (soundBtn) {
+            soundBtn.textContent = '🔊 ЗВУК';
+        }
+
+        const startOnce = () => {
+            ensureWheelSound();
+            document.removeEventListener('click', startOnce);
+            document.removeEventListener('keydown', startOnce);
+        };
+        document.addEventListener('click', startOnce);
+        document.addEventListener('keydown', startOnce);
+
+        consumeSoundTrigger();
+    });
+
+    function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function buildTrack() {
+        const track = document.getElementById('case-track');
+        if (!track) return;
+        track.innerHTML = '';
+
+        // === КЛЮЧЕВОЕ: берём папку из data-атрибута, а не из константы ===
+        const folder = getWheelFolder();
+        if (!folder) return;
+
+        const sequence = [];
+        for (let r = 0; r < REPEATS; r++) {
+            for (const v of WHEEL_VARIANTS) sequence.push(v);
+        }
+        shuffleArray(sequence);
+
+        for (const variant of sequence) {
+            const tile = document.createElement('div');
+            tile.className = 'case-tile';
+            const img = document.createElement('img');
+            img.src = STATIC_BASE + folder + "/" + variant + ".png";
+            img.alt = variant;
+            img.dataset.variant = variant;
+            tile.appendChild(img);
+            track.appendChild(tile);
+        }
+    }
+
+    function showInputs() {
+        const zone = document.getElementById('inputs-zone');
+        if (!zone) return;
+        zone.style.display = 'block';
+        const li = document.getElementById('letter-input');
+        if (li) li.focus();
+    }
+
+    function startSpin() {
+        if (isSpinning) return;
+
+        const spinBtn = document.getElementById('spin-btn');
+        const resultStatus = document.getElementById('result-status');
+        const stopHint = document.getElementById('stop-hint');
+        const flashBox = document.getElementById('flash-box');
+
+        buildTrack();
+        trackOffset = 0;
+
+        if (flashBox) flashBox.style.display = 'none';
+
+        spinBtn.disabled = true;
+        resultStatus.innerText = "КРУТИТСЯ...";
+        stopHint.style.display = 'block';
+
+        ensureWheelSound();
+
+        fetch('/spin', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    spinBtn.disabled = false;
+                    stopHint.style.display = 'none';
+                    return;
+                }
+
+                const targetVariant = data.variant;
+                const track = document.getElementById('case-track');
+                const tiles = track.querySelectorAll('.case-tile');
+                const totalTiles = tiles.length;
+
+                let targetIndex = -1;
+                const startSearch = Math.floor(totalTiles * 0.65);
+                for (let i = startSearch; i < totalTiles; i++) {
+                    if (tiles[i].querySelector('img').dataset.variant === targetVariant) {
+                        targetIndex = i;
+                        break;
+                    }
+                }
+                if (targetIndex < 0) {
+                    for (let i = 0; i < totalTiles; i++) {
+                        if (tiles[i].querySelector('img').dataset.variant === targetVariant) {
+                            targetIndex = i;
+                            break;
+                        }
+                    }
+                }
+                if (targetIndex < 0) targetIndex = 0;
+
+                const wrapper = document.querySelector('.case-wrapper');
+                const wrapperWidth = wrapper.clientWidth;
+                const tileCenter = targetIndex * TILE_WIDTH + TILE_WIDTH / 2;
+                const desiredOffset = tileCenter - wrapperWidth / 2;
+
+                const jitter = (Math.random() - 0.5) * (TILE_WIDTH * 0.5);
+                const finalOffset = desiredOffset + jitter;
+
+                const startOffset = trackOffset;
+                const duration = data.duration || 7000;
+
+                track.style.transition = 'none';
+                track.style.transform = `translateX(${-startOffset}px)`;
+                void track.offsetWidth;
+
+                track.style.transition = `transform ${duration}ms cubic-bezier(0.15, 0.85, 0.25, 1)`;
+                track.style.transform = `translateX(${-finalOffset}px)`;
+
+                trackOffset = finalOffset;
+
+                isSpinning = true;
+                stopRequested = false;
+                pendingSpinData = data;
+
+                startRollWatcher();
+
+                spinTimeoutId = setTimeout(() => finishSpin(data), duration);
+            })
+            .catch(err => {
+                console.error(err);
+                ensureWheelSound();
+                spinBtn.disabled = false;
+                stopHint.style.display = 'none';
+                resultStatus.innerText = "ОШИБКА.";
+            });
+    }
+
+    function finishSpin(data) {
+        stopRollWatcher();
+
+        const spinBtn = document.getElementById('spin-btn');
+        const resultStatus = document.getElementById('result-status');
+        const stopHint = document.getElementById('stop-hint');
+
+        isSpinning = false;
+        clearTimeout(spinTimeoutId);
+        spinTimeoutId = null;
+
+        ensureWheelSound();
+        stopHint.style.display = 'none';
+
+        resultStatus.innerHTML = `НА БАРАБАНЕ: <strong>${data.type_label}</strong>`;
+
+        if (data.type === "loose" || data.type === "skip" || data.type === "open") {
+            fetch('/apply_spin_effect', { method: 'POST' })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.force_end) {
+                        return refreshGameState();
+                    } else {
+                        spinBtn.style.display = 'none';
+                        showInputs();
+                        attachButtonSounds();
+                    }
+                })
+                .catch(() => {
+                    spinBtn.style.display = 'none';
+                    showInputs();
+                    attachButtonSounds();
+                });
+        } else {
+            spinBtn.style.display = 'none';
+            showInputs();
+            attachButtonSounds();
+        }
+    }
+
+    // ==== AJAX-обновление состояния ====
+    function refreshGameState() {
+        return fetch('/', { headers: { 'X-Requested-With': 'fetch' } })
+            .then(r => r.text())
+            .then(html => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+
+                const newMain = doc.querySelector('.main-game');
+                const oldMain = document.querySelector('.main-game');
+                if (newMain && oldMain) {
+                    oldMain.innerHTML = newMain.innerHTML;
+                    oldMain.dataset.soundTrigger = newMain.dataset.soundTrigger || "";
+                }
+
+                const newScore = doc.querySelector('.scoreboard');
+                const oldScore = document.querySelector('.scoreboard');
+                if (newScore && oldScore) oldScore.innerHTML = newScore.innerHTML;
+
+                const newFlash = doc.querySelector('#flash-box');
+                const oldFlash = document.getElementById('flash-box');
+                if (newFlash && oldFlash) {
+                    oldFlash.innerHTML = newFlash.innerHTML;
+                    oldFlash.style.display = newFlash.children.length ? 'block' : 'none';
+                }
+
+                buildTrack();
+                attachButtonSounds();
+
+                ensureWheelSound();
+                consumeSoundTrigger();
+            });
+    }
+
+    function submitLetter(e) {
+        e.preventDefault();
+        const form = e.target;
+        const fd = new FormData(form);
+        const val = (fd.get('letter') || '').toString().trim();
+        if (!val) return false;
+
+        fetch("{{ url_for('guess_letter') }}", {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'fetch' }
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.ok && res.sound) playResultSound(res.sound);
+                return refreshGameState();
+            })
+            .catch(err => console.error(err));
+
+        return false;
+    }
+
+    function submitWord(e) {
+        e.preventDefault();
+        const form = e.target;
+        const fd = new FormData(form);
+        const val = (fd.get('entire_word') || '').toString().trim();
+        if (!val) return false;
+
+        fetch("{{ url_for('guess_word') }}", {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'fetch' }
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.ok && res.sound) playResultSound(res.sound);
+                return refreshGameState();
+            })
+            .catch(err => console.error(err));
+
+        return false;
+    }
+
+    // ==== SPACE — стоп рулетки ====
+    document.addEventListener('keydown', function (e) {
+        if (e.code !== 'Space') return;
+        if (!isSpinning || stopRequested) return;
+        stopRequested = true;
+        e.preventDefault();
+
+        stopRollWatcher();
+
+        const track = document.getElementById('case-track');
+        const computed = window.getComputedStyle(track).transform;
+        track.style.transition = 'none';
+        track.style.transform = computed;
+        void track.offsetWidth;
+
+        const fastDuration = 250;
+        track.style.transition = `transform ${fastDuration}ms cubic-bezier(0.15, 0.85, 0.25, 1)`;
+        track.style.transform = `translateX(${-trackOffset}px)`;
+
+        clearTimeout(spinTimeoutId);
+        spinTimeoutId = setTimeout(() => {
+            finishSpin(pendingSpinData);
+        }, fastDuration + 20);
+    });
+</script>
+
+</body>
+</html>
